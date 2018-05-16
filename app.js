@@ -46,6 +46,9 @@ app.use(partials());
 app.use(flash());
 
 app.use('/', index);
+app.use('/quizzes/random_play', index);
+app.use('/quizzes/random_result', index);
+app.use('/quizzes/random_nomore', index);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

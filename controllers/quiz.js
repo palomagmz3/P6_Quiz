@@ -126,30 +126,71 @@ exports.destroy = (req, res, next) => {
 
 
 // GET /quizzes/:quizId/play
-exports.play = (req, res, next) => {
+// GET /quizzes/:quizId/play
+exports.randomplay = (req, res, next) => {
 
-    const {quiz, query} = req;
+    req.session.randomPlay = req.session.randomPlay || [];
 
-    const answer = query.answer || '';
+    const whereOpt = {'id': {[Sequelize.Op.notIn]: req.session.randomPlay}};
+    models.quiz.count({where: whereOpt})
+    .then(function (count){
+        if(!count){
+            const score = req.session.randomPlay.length;
+            req.session.randomPlay = [];
+            res.render('quizzes/random_nomore', {
+                score:score
+            });
+        };
+        return models.quiz.findAll({
+            where: whereOpt,
+            offset: Math.floor(Math.random()*count),
+            limit: 1
+    })
+    .then(function (quizzes) {
+            return quizzes[0];
+        });
+    })
+    .then(function (quiz) {
+        res.render('quizzes/random_play', {
+            quiz: quiz,
+            score: req.session.randomPlay.length
+        });
+    })
+    .catch(error => next(error));
 
-    res.render('quizzes/play', {
-        quiz,
-        answer
-    });
 };
 
 
+    
+
 // GET /quizzes/:quizId/check
-exports.check = (req, res, next) => {
+exports.randomcheck = (req, res, next) => {
 
-    const {quiz, query} = req;
+    req.session.randomPlay = req.session.randomPlay || [];
 
-    const answer = query.answer || "";
-    const result = answer.toLowerCase().trim() === quiz.answer.toLowerCase().trim();
+    const answer = req.query.answer || "";
+    const answer2 = req.quiz.answer;
 
-    res.render('quizzes/result', {
-        quiz,
-        result,
-        answer
-    });
+    const result = answer.toLowerCase().trim() === answer2.toLowerCase().trim();
+
+    if (result) {
+        req.session.randomPlay.lastQuizId = 0;
+
+        //Evitar que se hagan llamadas a este método y que 
+        //se guarde muchas veces la misma respuesta
+        //incrementándose indebidamente
+        if(req.session.randomPlay.indexOf(req.quiz.id) === -1) {
+            req.session.randomPlay.push(req.quiz.id);
+            
+        }
+
+    }
+
+    const score = req.session.randomPlay.length;
+    
+    if(!result) {
+        delete req.session.randomPlay;
+    }
+
+    res.render('quizzes/random_result', {answer, result, score});
 };
